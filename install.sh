@@ -53,15 +53,17 @@ declare -a STEPS=(
     "02-ssh.sh:Endurecimento do SSH"
     "03-webserver.sh:Nginx + PHP ${PHP_VERSION:-8.3} + MariaDB"
     "04-nodejs.sh:Node.js ${NODEJS_VERSION:-22} + PM2"
-    "05-ssl.sh:Certificado SSL autoassinado"
-    "06-mdns.sh:mDNS Avahi (${LOCAL_DOMAIN:-empresa.local})"
-    "07-docker.sh:Docker CE + Compose"
-    "08-cockpit.sh:Cockpit (gerenciamento web)"
+    "05-docker.sh:Docker CE + Compose"
+    "06-ssl.sh:Certificado SSL autoassinado"
+    "07-mdns.sh:mDNS Avahi (${LOCAL_DOMAIN:-empresa.local})"
 )
 
 TOTAL=${#STEPS[@]}
 CURRENT=0
 FAILED=0
+
+declare -a SUCCESS_LOG
+declare -a ERROR_LOG
 
 # ─── Executa etapas ────────────────────────────────────────────────────────
 for entry in "${STEPS[@]}"; do
@@ -73,40 +75,56 @@ for entry in "${STEPS[@]}"; do
 
     if [[ ! -f "${SCRIPTS_DIR}/${script}" ]]; then
         log_warn "Script não encontrado: ${script} — pulando."
+        ERROR_LOG+=("- ${desc} (Script não encontrado)")
+        ((FAILED++))
         continue
     fi
 
     if bash "${SCRIPTS_DIR}/${script}"; then
         log_ok "${desc} concluído."
+        SUCCESS_LOG+=("- ${desc}")
     else
         log_error "${desc} falhou. Verifique os logs acima."
+        ERROR_LOG+=("- ${desc}")
         ((FAILED++))
     fi
 done
 
 # ─── Resumo final ──────────────────────────────────────────────────────────
 echo ""
-if (( FAILED == 0 )); then
-    echo -e "${GREEN}${BOLD}"
-    echo "  ╔══════════════════════════════════════════════════════╗"
-    echo "  ║       ✓  SERVIDOR CONFIGURADO COM SUCESSO            ║"
-    echo -e "  ╚══════════════════════════════════════════════════════╝${NC}"
-else
+echo -e "${BOLD}=== RESUMO DA INSTALAÇÃO ===${NC}"
+echo ""
+
+if (( ${#SUCCESS_LOG[@]} > 0 )); then
+    echo -e "${GREEN}✓ Concluído com Sucesso:${NC}"
+    for success in "${SUCCESS_LOG[@]}"; do
+        echo -e "  ${GREEN}${success}${NC}"
+    done
+    echo ""
+fi
+
+if (( FAILED > 0 )); then
+    echo -e "${RED}✗ Falhas Encontradas:${NC}"
+    for err in "${ERROR_LOG[@]}"; do
+        echo -e "  ${RED}${err}${NC}"
+    done
+    echo ""
     echo -e "${YELLOW}${BOLD}"
     echo "  ╔══════════════════════════════════════════════════════╗"
     echo "  ║   ⚠  Concluído com ${FAILED} erro(s) — verifique os logs   ║"
+    echo -e "  ╚══════════════════════════════════════════════════════╝${NC}"
+else
+    echo -e "${GREEN}${BOLD}"
+    echo "  ╔══════════════════════════════════════════════════════╗"
+    echo "  ║       ✓  SERVIDOR CONFIGURADO COM SUCESSO            ║"
     echo -e "  ╚══════════════════════════════════════════════════════╝${NC}"
 fi
 
 echo ""
 echo -e "  ${BOLD}Acessos:${NC}"
-echo -e "  🌐 Cockpit:    https://${LOCAL_DOMAIN:-empresa.local}:9090"
 echo -e "  🌐 Web:        https://${LOCAL_DOMAIN:-empresa.local}"
 echo -e "  🔑 SSH:        ssh -p ${SSH_PORT:-22} <usuário>@${LOCAL_DOMAIN:-empresa.local}"
 echo -e "  📂 Sites:      ${WEB_ROOT:-/srv/sites}"
-echo -e "  📦 Backups:    ${BACKUP_DIR:-/srv/backups}"
 echo ""
 echo -e "  ${YELLOW}Credenciais salvas em: /root/.server-credentials${NC}"
-echo -e "  ${YELLOW}Adicionar site:  sudo bash scripts/09-novo-site.sh${NC}"
-echo -e "  ${YELLOW}Manutenção:      sudo bash scripts/12-manutencao.sh${NC}"
 echo ""

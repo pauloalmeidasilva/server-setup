@@ -69,7 +69,6 @@ ufw default allow outgoing
 ufw allow "${SSH_PORT:-22}/tcp"  comment 'SSH'
 ufw allow 80/tcp                 comment 'HTTP'
 ufw allow 443/tcp                comment 'HTTPS'
-ufw allow 9090/tcp               comment 'Cockpit'
 
 ufw --force enable
 log_ok "UFW configurado e ativo."
@@ -79,6 +78,8 @@ log_step "Configurando Fail2ban"
 
 cat > /etc/fail2ban/jail.local <<EOF
 [DEFAULT]
+# Redes internas (RFC 1918) e localhost não serão banidas
+ignoreip = 127.0.0.1/8 ::1 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
 # Tempo de banimento: 1 hora (em segundos)
 bantime  = 3600
 # Janela de tempo para contar tentativas: 10 minutos
